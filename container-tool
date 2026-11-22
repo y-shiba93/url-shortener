@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+"""Local Apple Container operations; never manages compressor-ui."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+CERTS = ROOT / '.certs'
+IMAGE = 'kuro-shiba-url-shortener:node24'
+NAME = 'url-shortener-ui'
+DOMAIN = 'local.tool.urlstn.kuro-shiba.com'
+
+
+def run(*args, **kwargs):
+    return subprocess.run(args, check=True, cwd=ROOT, **kwargs)
+
+
+def ip():
+    data = json.loads(run('container', 'inspect', NAME, capture_output=True, text=True).stdout)
+    return data[0]['status']['networks'][0]['ipv4Address'].split('/')[0]
+
+
+def setup_https():
+    os.umask(0o077)
+    CERTS.mkdir(mode=0o700, exist_ok=True)
+    ca = CERTS / 'local-ca.crt'
+    key = CERTS / 'local-ca.key'
+    if ca.exists() != key.exists():
+        raise SystemExit('Incomplete CA pair; restore both CA files before continuing.')
+    config = CERTS / 'openssl.cnf'
+    config.write_text(f'''[req]
+prompt = no
+distinguished_name = subject
+x509_extensions = ca_extensions
+req_extensions = server_extensions
+[subject]
+CN = URL Shortener Local Development CA
+[ca_extensions]
+basicConstraints = critical, CA:TRUE
+keyUsage = critical, keyCertSign, cRLSign
+subjectKeyIdentifier = hash
+[server_extensions]
+basicConstraints = critical, CA:FALSE
+subjectAltName = DNS:{DOMAIN}
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+''')
+    if not ca.exists():
+        run('openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-sha256', '-days', '3650',
+            '-nodes', '-keyout', str(key), '-out', str(ca), '-config', str(config))
+    run('openssl', 'req', '-new', '-newkey', 'rsa:2048', '-nodes',
+        '-keyout', str(CERTS / 'server.key'), '-out', str(CERTS / 'server.csr'),
+        '-subj', f'/CN={DOMAIN}', '-config', str(config))
+    run('openssl', 'x509', '-req', '-in', str(CERTS / 'server.csr'),
+        '-CA', str(ca), '-CAkey', str(key), '-CAcreateserial',
+        '-out', str(CERTS / 'server.crt'), '-days', '365', '-sha256',
+        '-extensions', 'server_extensions', '-extfile', str(config))
+    print('Certificates generated. Run trust separately; restart after renewing certificates.')
+
+
+def main():
+    action = sys.argv[1] if len(sys.argv) == 2 else ''
+    if action == 'build':
+        run('container', 'build', '-f', str(ROOT / 'Containerfile'), '-t', IMAGE, str(ROOT))
+    elif action == 'setup-https':
+        setup_https()
+    elif action == 'trust':
+        run('security', 'add-trusted-cert', '-r', 'trustRoot', '-k',
+            str(Path.home() / 'Library/Keychains/login.keychain-db'), str(CERTS / 'local-ca.crt'))
+    elif action == 'start':
+        for filename in ('server.crt', 'server.key'):
+            if not (CERTS / filename).is_file():
+                raise SystemExit('Run ./container-tool setup-https first.')
+        run('container', 'run', '-d', '--name', NAME,
+            '-v', f'{CERTS}/server.crt:/certs/server.crt:ro',
+            '-v', f'{CERTS}/server.key:/certs/server.key:ro', IMAGE)
+        print(f'Hosts mapping: {ip()} {DOMAIN}')
+    elif action == 'stop':
+        run('container', 'stop', NAME)
+        run('container', 'delete', NAME)
+    elif action == 'test':
+        run('container', 'run', '--rm', IMAGE, 'npm', 'test')
+    elif action == 'ip':
+        print(ip())
+    elif action == 'hosts':
+        print(f'{ip()} {DOMAIN}')
+    elif action == 'verify':
+        run('curl', '--fail', '--silent', '--show-error', '--max-time', '15',
+            '--noproxy', '*', '--cacert', str(CERTS / 'local-ca.crt'),
+            '--resolve', f'{DOMAIN}:443:{ip()}', '-o', '/dev/null',
+            '-w', 'HTTPS status: %{http_code}\n', f'https://{DOMAIN}/')
+    elif action == 'logs':
+        run('container', 'logs', NAME)
+    else:
+        raise SystemExit('Usage: ./container-tool {build|setup-https|trust|start|stop|test|ip|hosts|verify|logs}')
+
+
+if __name__ == '__main__':
+    main()
