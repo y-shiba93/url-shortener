@@ -12,7 +12,7 @@ const store = new UrlStore(
     (devReload ? `http://127.0.0.1:${rawPort}` : undefined),
 );
 
-const server = createApp(store, undefined, devReload);
+const server = createApp(store, undefined, devReload); // 規定のpublicを静的ファイルの向き先とする
 server.listen(Number(rawPort), devReload ? "127.0.0.1" : "0.0.0.0", () => {
   console.log(`Listening on port ${rawPort}; short URL origin: ${store.base}`);
 });

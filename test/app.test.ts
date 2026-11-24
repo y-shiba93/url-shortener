@@ -86,8 +86,12 @@ test("base validation and strict resolve validation", () => {
   ])
     assert.throws(() => store.resolve(input));
   assert.throws(
+    () => store.resolve("https://other.example/Ab12Cd34"),
+    /このサービスで生成された短縮URLを、そのまま入力してください。/,
+  );
+  assert.throws(
     () => store.resolve("https://example.com/Unknown1"),
-    /not found/,
+    /短縮URLが見つかりません。/,
   );
 });
 
