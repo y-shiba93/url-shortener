@@ -175,4 +175,51 @@ test("HTTP APIs, redirects, body limits and static UI", async (t) => {
   assert.equal((await fetch(base + "/app.js")).status, 200);
   assert.equal((await fetch(base + "/style.css")).status, 200);
   assert.equal((await fetch(base + "/package.json")).status, 404);
+  assert.equal((await fetch(base + "/__dev/status")).status, 404);
+  assert.equal((await fetch(base + "/__dev/events")).status, 404);
+  assert.equal((await fetch(base + "/__dev/reload.js")).status, 404);
+  assert.doesNotMatch(await (await fetch(base)).text(), /__dev\/reload\.js/);
+});
+
+test("development reload endpoints are isolated from production", async (t) => {
+  const server = createApp(new UrlStore(), undefined, true);
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(
+    () =>
+      new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      ),
+  );
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const base = `http://127.0.0.1:${address.port}`;
+  const page = await (await fetch(base)).text();
+  const version = page.match(/data-version="([a-f0-9-]+)"/)?.[1];
+  assert.ok(version);
+  assert.match(page, /src="\/__dev\/reload\.js"/);
+  assert.deepEqual(await (await fetch(base + "/__dev/status")).json(), {
+    version,
+  });
+  const controller = new AbortController();
+  const events = await fetch(base + "/__dev/events", {
+    signal: controller.signal,
+  });
+  assert.equal(
+    events.headers.get("content-type"),
+    "text/event-stream; charset=utf-8",
+  );
+  const reader = events.body?.getReader();
+  assert.ok(reader);
+  const first = await reader.read();
+  assert.match(
+    new TextDecoder().decode(first.value),
+    new RegExp(`data: ${version}\\n\\n`),
+  );
+  controller.abort();
+  const script = await fetch(base + "/__dev/reload.js");
+  assert.equal(script.status, 200);
+  const source = await script.text();
+  assert.match(source, /new EventSource\(["']\/__dev\/events["']\)/);
+  assert.match(source, /location\.reload\(\)/);
 });

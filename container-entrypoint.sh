@@ -3,7 +3,11 @@ set -euo pipefail
 
 # Separate process groups let shutdown reach npm's Node child as well.
 set -m
-npm start &
+if [ "${LOCAL_DEV_RELOAD:-}" = "1" ]; then
+  npm run dev &
+else
+  npm start &
+fi
 app_pid=$!
 caddy run --config /etc/caddy/Caddyfile --adapter caddyfile &
 caddy_pid=$!

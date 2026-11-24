@@ -4,6 +4,7 @@ import {
   type ServerResponse,
 } from "node:http";
 import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { HttpError, UrlStore } from "./store.js";
 
 const BODY_LIMIT = 16 * 1024;
@@ -57,12 +58,27 @@ function json(res: ServerResponse, status: number, value: unknown) {
   res.end(JSON.stringify(value));
 }
 
-export function createApp(store = new UrlStore(), assetsRoot = publicRoot) {
+export function createApp(
+  store = new UrlStore(),
+  assetsRoot = publicRoot,
+  devReload = false,
+) {
+  const version = devReload ? randomUUID() : undefined;
+  const html = readFileSync(new URL("index.html", assetsRoot));
   const assets = new Map([
     [
       "/",
       {
-        body: readFileSync(new URL("index.html", assetsRoot)),
+        body: devReload
+          ? Buffer.from(
+              html
+                .toString()
+                .replace(
+                  "</body>",
+                  `<script src="/__dev/reload.js" data-version="${version}" defer></script>\n</body>`,
+                ),
+            )
+          : html,
         type: "text/html; charset=utf-8",
       },
     ],
@@ -81,6 +97,12 @@ export function createApp(store = new UrlStore(), assetsRoot = publicRoot) {
       },
     ],
   ]);
+  if (devReload) {
+    assets.set("/__dev/reload.js", {
+      body: readFileSync(new URL("dev-reload.js", assetsRoot)),
+      type: "text/javascript; charset=utf-8",
+    });
+  }
   return createServer(async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -106,6 +128,18 @@ export function createApp(store = new UrlStore(), assetsRoot = publicRoot) {
         return;
       }
       if (req.method === "GET") {
+        if (devReload && path === "/__dev/status") {
+          json(res, 200, { version });
+          return;
+        }
+        if (devReload && path === "/__dev/events") {
+          res.writeHead(200, {
+            "Content-Type": "text/event-stream; charset=utf-8",
+            Connection: "keep-alive",
+          });
+          res.write(`retry: 500\ndata: ${version}\n\n`);
+          return;
+        }
         const asset = assets.get(path);
         if (asset) {
           res.writeHead(200, { "Content-Type": asset.type });

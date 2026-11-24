@@ -7,6 +7,7 @@ COPY tsconfig.json ./
 COPY src ./src
 COPY test ./test
 COPY public ./public
+COPY scripts ./scripts
 RUN npm run build
 COPY --from=caddy /usr/bin/caddy /usr/local/bin/caddy
 COPY Caddyfile /etc/caddy/Caddyfile

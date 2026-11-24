@@ -134,11 +134,11 @@ def main():
             str(Path.home() / "Library/Keychains/login.keychain-db"),
             str(CERTS / "local-ca.crt"),
         )
-    elif action == "start":
+    elif action in ("start", "dev"):
         for filename in ("server.crt", "server.key"):
             if not (CERTS / filename).is_file():
                 raise SystemExit("Run ./container-tool setup-https first.")
-        run(
+        args = [
             "container",
             "run",
             "-d",
@@ -150,8 +150,40 @@ def main():
             f"{CERTS}/server.crt:/certs/server.crt:ro",
             "-v",
             f"{CERTS}/server.key:/certs/server.key:ro",
-            IMAGE,
-        )
+        ]
+        if action == "dev":
+            args += [
+                "-e",
+                "LOCAL_DEV_RELOAD=1",
+                "-v",
+                f"{ROOT}/src:/app/src:ro",
+                "-v",
+                f"{ROOT}/public:/app/public:ro",
+            ]
+        run(*args, IMAGE)
+        if action == "dev":
+            run(
+                "curl",
+                "--fail",
+                "--silent",
+                "--show-error",
+                "--retry",
+                "20",
+                "--retry-all-errors",
+                "--retry-delay",
+                "1",
+                "--max-time",
+                "2",
+                "--noproxy",
+                "*",
+                "--cacert",
+                str(CERTS / "local-ca.crt"),
+                "--resolve",
+                "example.com:443:127.0.0.1",
+                "-o",
+                "/dev/null",
+                "https://example.com/__dev/reload.js",
+            )
         print(f"Hosts mapping: 127.0.0.1 {' '.join(DOMAINS)}")
     elif action == "stop":
         run("container", "stop", NAME)
@@ -188,7 +220,7 @@ def main():
         run("container", "logs", NAME)
     else:
         raise SystemExit(
-            "Usage: ./container-tool {build|setup-https|trust|start|stop|test|ip|hosts|verify|logs}"
+            "Usage: ./container-tool {build|setup-https|trust|start|dev|stop|test|ip|hosts|verify|logs}"
         )
 
 

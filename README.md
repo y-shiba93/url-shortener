@@ -15,6 +15,21 @@ SHORT_URL_BASE_URL=http://localhost:3000 npm start
 
 ブラウザーで `http://localhost:3000` を開きます。`npm start` はビルド済みの `dist/src/server.js` を起動します。`public/` も実行環境に必要です。この直接起動例では短縮URLのoriginをlocalhostに変更します。
 
+### ローカル開発（HTTPSで自動更新）
+
+Apple ContainerでHTTPSをセットアップした後、通常起動中のコンテナを開発用に入れ替えます。
+
+```sh
+./container-tool stop
+./container-tool build
+./container-tool dev
+./container-tool verify
+```
+
+`https://example.com/`（または `https://local.tool.urlstn.kuro-shiba.com/`）を開いてください。開発モードではホストの `src/` と `public/` を読み取り専用でコンテナへマウントし、**TypeScriptや静的ファイルの保存をポーリングで検出**してアプリを再起動します。ブラウザは開発専用のEventSource接続を維持し、再起動後に接続が戻った際に自動リロードします。定期的なHTTPリクエストは送りません。保存時にコンテナは再作成しませんが、**Nodeの再起動で短縮URLの登録は消えます**。Caddy・証明書・`/etc/hosts` は通常起動と同じです。TypeScriptのビルドに失敗した場合は直前のサーバーが動き続け、修正して保存すると再ビルドします。
+
+監視を止めて通常起動へ戻す場合は `./container-tool stop` の後に `./container-tool start` を実行します。通常起動では監視・開発用エンドポイントは無効です。単体のHTTP開発サーバーとして使う場合は `npm run dev` で `http://127.0.0.1:3000/` を開けます（その場合の短縮URLのoriginは既定で `http://127.0.0.1:3000`）。
+
 | 環境変数             | デフォルト            | 制約                                                                               |
 | -------------------- | --------------------- | ---------------------------------------------------------------------------------- |
 | `PORT`               | `3000`                | 1〜65535の整数                                                                     |
