@@ -1,35 +1,51 @@
 <!doctype html>
 <html lang="ja">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>URL短縮・復元</title>
-  <link rel="stylesheet" href="/style.css">
-  <script src="/app.js" defer></script>
-</head>
-<body>
-  <main>
-    <h1>URL短縮・復元</h1>
-    <p>HTTP / HTTPS のURLを短縮し、元のURLを確認できます。</p>
-    <section>
-      <h2>短縮する</h2>
-      <form data-action="shorten">
-        <label for="url">元のURL</label>
-        <input id="url" name="url" type="url" maxlength="8192" placeholder="https://example.org/page" required>
-        <button type="submit">短縮URLを生成</button>
-        <p class="result" role="status" aria-live="polite"></p>
-      </form>
-    </section>
-    <section>
-      <h2>復元する</h2>
-      <form data-action="resolve">
-        <label for="shortUrl">短縮URL</label>
-        <input id="shortUrl" name="shortUrl" type="url" maxlength="8192" placeholder="https://example.com/Ab12Cd34" required>
-        <button type="submit">元のURLを表示</button>
-        <p class="result" role="status" aria-live="polite"></p>
-      </form>
-    </section>
-    <p class="note">登録内容はサーバー再起動時に消去されます。機密情報を含むURLは登録しないでください。</p>
-  </main>
-</body>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>URL短縮・復元</title>
+        <link rel="stylesheet" href="/style.css" />
+        <script src="/app.js" defer></script>
+    </head>
+    <body>
+        <main>
+            <h1>URL短縮・復元</h1>
+            <p>HTTP / HTTPS のURLを短縮し、元のURLを確認できます。</p>
+            <section>
+                <h2>短縮する</h2>
+                <form data-action="shorten">
+                    <label for="url">元のURL</label>
+                    <input
+                        id="url"
+                        name="url"
+                        type="url"
+                        maxlength="8192"
+                        placeholder="https://your-domain.example/page"
+                        required
+                    />
+                    <button type="submit">短縮URLを生成</button>
+                    <p class="result" role="status" aria-live="polite"></p>
+                </form>
+            </section>
+            <section>
+                <h2>復元する</h2>
+                <form data-action="resolve">
+                    <label for="shortUrl">短縮URL</label>
+                    <input
+                        id="shortUrl"
+                        name="shortUrl"
+                        type="url"
+                        maxlength="8192"
+                        placeholder="https://example.com/Ab12Cd34"
+                        required
+                    />
+                    <button type="submit">元のURLを表示</button>
+                    <p class="result" role="status" aria-live="polite"></p>
+                </form>
+            </section>
+            <p class="note">
+                登録内容はサーバー再起動時に消去されます。機密情報を含むURLは登録しないでください。
+            </p>
+        </main>
+    </body>
 </html>

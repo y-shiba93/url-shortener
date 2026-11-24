@@ -2,7 +2,7 @@
 	admin off
 }
 
-local.tool.urlstn.kuro-shiba.com {
+local.tool.urlstn.kuro-shiba.com, example.com {
 	tls /certs/server.crt /certs/server.key
 	reverse_proxy 127.0.0.1:3000
 }
